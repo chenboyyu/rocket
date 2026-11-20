@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>火箭推進器酬載彈射機構 · 超大比例主副傘互動透視圖</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    .comp-highlight {
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .comp-highlight:hover {
+      filter: drop-shadow(0 0 10px rgba(37, 99, 235, 0.5));
+      cursor: pointer;
+    }
+    .anim-smooth {
+      transition: all 0.8s cubic-bezier(0.34, 1.2, 0.64, 1);
+    }
+    .cursor-grab { cursor: grab; }
+    .cursor-grabbing { cursor: grabbing; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-900 antialiased p-0 m-0 font-sans">
+  <div class="max-w-6xl mx-auto p-3 space-y-3">
+    
+    <!-- Header Control Bar -->
+    <div class="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl bg-white border border-slate-200 shadow-sm">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="inline-block w-3 h-3 rounded-full bg-blue-600 animate-pulse"></span>
+          <h1 class="text-base font-extrabold text-slate-900 tracking-tight">
+            推進器酬載雙牙條彈射 + 兩級開傘機構
+            <span class="text-xs px-2 py-0.5 ml-2 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-medium">航太真實比例 · 超大主副傘</span>
+          </h1>
+        </div>
+        <p class="text-xs text-slate-500 mt-0.5">
+          220mm副傘 (強抽取力) · 92mm厚實長條主傘包穿套於環內 · 560mm超大滿充主傘冠 (寬於箭體) · 支援滾輪平移縮放
+        </p>
+      </div>
+
+      <!-- 4-State Stage Switcher -->
+      <div class="flex flex-wrap items-center gap-1.5 p-1.5 rounded-xl bg-slate-100 border border-slate-200 text-xs">
+        <button id="btn-state-1" onclick="setState(1)" class="px-3 py-1.5 rounded-lg font-bold transition-all bg-blue-600 text-white shadow-sm">
+          1. 地面下壓鎖定
+        </button>
+        <button id="btn-state-2" onclick="setState(2)" class="px-3 py-1.5 rounded-lg font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-slate-200/60">
+          2. 拔銷備發
+        </button>
+        <button id="btn-state-3" onclick="setState(3)" class="px-3 py-1.5 rounded-lg font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-slate-200/60">
+          3. 高空副傘 (長條穿環)
+        </button>
+        <button id="btn-state-4" onclick="setState(4)" class="px-3 py-1.5 rounded-lg font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-slate-200/60">
+          4. 低空主傘 (560mm綻放)
+        </button>
+      </div>
+    </div>
+
+    <!-- Main Workspace Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-3">
+      
+      <!-- Left: Extended Tall Vector SVG Canvas with Zoom & Pan -->
+      <div id="canvas-container" class="lg:col-span-8 rounded-2xl bg-white border border-slate-200 p-2 relative flex items-center justify-center overflow-hidden h-[730px] shadow-sm select-none cursor-grab">
+        
+        <!-- Zoom Floating Toolbar -->
+        <div class="absolute top-3 left-3 z-20 flex items-center gap-1.5 bg-white/95 backdrop-blur-md p-1.5 rounded-xl border border-slate-200 text-xs shadow-md">
+          <button onclick="zoomIn()" title="放大" class="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold active:scale-95">+</button>
+          <button onclick="zoomOut()" title="縮小" class="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold active:scale-95">−</button>
+          <button onclick="resetZoom()" title="重設檢視" class="px-2 h-7 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 text-[11px] text-slate-700 font-semibold active:scale-95">
+            <span id="zoom-readout">100%</span> ⟲
+          </button>
+          <div class="h-4 w-[1px] bg-slate-200 mx-0.5"></div>
+          <button onclick="focusParachutes()" title="聚焦開傘區" class="px-2 h-7 flex items-center justify-center rounded-lg bg-amber-50 hover:bg-amber-100 text-[11px] text-amber-800 font-semibold">
+            🪂 聚焦傘組
+          </button>
+          <button onclick="focusMechanism()" title="聚焦彈射底座" class="px-2 h-7 flex items-center justify-center rounded-lg bg-blue-50 hover:bg-blue-100 text-[11px] text-blue-800 font-semibold">
+            ⚙️ 聚焦彈射
+          </button>
+        </div>
+
+        <!-- Shell Transparency Controls -->
+        <div class="absolute bottom-3 left-3 z-20 flex items-center gap-1 bg-white/95 backdrop-blur-md p-1.5 rounded-xl border border-slate-200 text-xs shadow-md">
+          <span class="text-[10px] text-slate-500 font-medium px-1">外殼透視:</span>
+          <button id="btn-ghost" onclick="setShellOpacity(0.22)" class="px-2 py-1 rounded text-[11px] bg-blue-50 text-blue-700 font-semibold border border-blue-200">半透明</button>
+          <button id="btn-hide" onclick="setShellOpacity(0)" class="px-2 py-1 rounded text-[11px] text-slate-600 hover:bg-slate-100">隱藏</button>
+          <button id="btn-xray" onclick="setShellOpacity(0.65)" class="px-2 py-1 rounded text-[11px] text-slate-600 hover:bg-slate-100">實心</button>
+        </div>
+
+        <!-- Status Pill Overlay -->
+        <div class="absolute top-3 right-3 z-10 bg-white/95 backdrop-blur-md px-3.5 py-2 rounded-xl border border-slate-200 text-right shadow-md max-w-[280px]">
+          <div id="state-badge" class="text-xs font-extrabold text-red-600 flex items-center justify-end gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-red-600"></span>
+            1. 地面安全鎖定模式
+          </div>
+          <div id="state-desc" class="text-[11px] text-slate-500 mt-0.5 leading-snug">
+            酬載下壓到底壓扁主副傘，螺帽咬合牙條，紅安全銷卡死彈射板
+          </div>
+        </div>
+
+        <!-- SVG Mechanical Layout -->
+        <svg id="cad-svg" viewBox="-120 -440 740 1500" class="w-full h-full">
+          <defs>
+            <linearGradient id="alu-grad" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#94a3b8" />
+              <stop offset="35%" stop-color="#f8fafc" />
+              <stop offset="70%" stop-color="#e2e8f0" />
+              <stop offset="100%" stop-color="#64748b" />
+            </linearGradient>
+
+            <pattern id="carbon-pat" width="6" height="6" patternUnits="userSpaceOnUse">
+              <rect width="6" height="6" fill="#0f172a" />
+              <polygon points="0,0 3,0 0,3" fill="#1e293b" />
+              <polygon points="3,3 6,3 3,6" fill="#1e293b" />
+              <polygon points="3,0 6,0 6,3" fill="#334155" />
+              <polygon points="0,3 3,3 0,6" fill="#334155" />
+            </pattern>
+
+            <pattern id="thread-pat" width="8" height="6" patternUnits="userSpaceOnUse">
+              <line x1="0" y1="2" x2="8" y2="5" stroke="#94a3b8" stroke-width="1.6" />
+              <line x1="0" y1="0" x2="8" y2="3" stroke="#475569" stroke-width="0.9" />
+            </pattern>
+
+            <pattern id="chute-fabric-pat" width="14" height="28" patternUnits="userSpaceOnUse">
+              <rect width="14" height="28" fill="#fffbeb" />
+              <line x1="7" y1="0" x2="7" y2="28" stroke="#fde68a" stroke-width="1.8" />
+              <path d="M0,7 Q7,10 14,7 M0,21 Q7,24 14,21" stroke="#fcd34d" stroke-width="1.2" fill="none" opacity="0.85" />
+            </pattern>
+
+            <linearGradient id="hull-grad" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#0284c7" stop-opacity="0.25" />
+              <stop offset="25%" stop-color="#0284c7" stop-opacity="0.04" />
+              <stop offset="75%" stop-color="#0284c7" stop-opacity="0.04" />
+              <stop offset="100%" stop-color="#0284c7" stop-opacity="0.30" />
+            </linearGradient>
+
+            <linearGradient id="gold-ring-grad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#fbbf24" />
+              <stop offset="50%" stop-color="#f59e0b" />
+              <stop offset="100%" stop-color="#b45309" />
+            </linearGradient>
+
+            <filter id="spring-glow" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#dc2626" flood-opacity="0.25"/>
+            </filter>
+            
+            <filter id="chute-shadow" x="-10%" y="-10%" width="120%" height="120%">
+              <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#0f172a" flood-opacity="0.18"/>
+            </filter>
+          </defs>
+
+          <!-- PAN & ZOOM LAYER -->
+          <g id="viewport-group" transform="translate(0, 0) scale(1)">
+
+            <!-- Subtle Engineering Grid -->
+            <g stroke="#f1f5f9" stroke-width="1.2">
+              <line x1="-100" y1="-400" x2="600" y2="-400" />
+              <line x1="-100" y1="-200" x2="600" y2="-200" />
+              <line x1="-100" y1="0" x2="600" y2="0" />
+              <line x1="-100" y1="200" x2="600" y2="200" />
+              <line x1="-100" y1="400" x2="600" y2="400" />
+              <line x1="-100" y1="600" x2="600" y2="600" />
+              <line x1="-100" y1="800" x2="600" y2="800" />
+              <line x1="-100" y1="1000" x2="600" y2="1000" />
+
+              <line x1="-60" y1="-440" x2="-60" y2="1060" />
+              <line x1="60" y1="-440" x2="60" y2="1060" />
+              <line x1="155" y1="-440" x2="155" y2="1060" />
+              <line x1="250" y1="-440" x2="250" y2="1060" stroke="#e2e8f0" stroke-dasharray="6 4" />
+              <line x1="345" y1="-440" x2="345" y2="1060" />
+              <line x1="440" y1="-440" x2="440" y2="1060" />
+              <line x1="560" y1="-440" x2="560" y2="1060" />
+            </g>
+
+            <!-- 2020 Aluminum Rails & End Stops -->
+            <g id="comp-rails" class="comp-highlight" onclick="inspect('rails')">
+              <!-- Left Rail -->
+              <rect x="80" y="300" width="18" height="620" fill="url(#alu-grad)" rx="2" stroke="#334155" stroke-width="1.2" />
+              <line x1="89" y1="300" x2="89" y2="920" stroke="#0f172a" stroke-width="2.5" />
+              <rect x="76" y="300" width="26" height="12" fill="#1e293b" rx="2" stroke="#0f172a" />
+              <rect x="78" y="312" width="22" height="9" fill="#ea580c" rx="2" />
+
+              <!-- Right Rail -->
+              <rect x="402" y="300" width="18" height="620" fill="url(#alu-grad)" rx="2" stroke="#334155" stroke-width="1.2" />
+              <line x1="411" y1="300" x2="411" y2="920" stroke="#0f172a" stroke-width="2.5" />
+              <rect x="398" y="300" width="26" height="12" fill="#1e293b" rx="2" stroke="#0f172a" />
+              <rect x="400" y="312" width="22" height="9" fill="#ea580c" rx="2" />
+            </g>
+
+            <!-- Bottom Mounting Bulkhead -->
+            <g id="comp-bulkhead" class="comp-highlight" onclick="inspect('bulkhead')">
+              <rect x="72" y="920" width="356" height="18" fill="url(#alu-grad)" stroke="#1e293b" stroke-width="1.5" rx="3" />
+              <rect x="133" y="912" width="24" height="8" fill="#475569" rx="2" stroke="#1e293b" />
+              <rect x="343" y="912" width="24" height="8" fill="#475569" rx="2" stroke="#1e293b" />
+              <text x="75" y="945" font-size="9" fill="#64748b" font-weight="bold">6061-T6 結構承載底板</text>
+            </g>
+
+            <!-- Geared Motors & Couplers -->
+            <g id="comp-motors" class="comp-highlight" onclick="inspect('motors')">
+              <rect x="135" y="938" width="20" height="38" fill="#1e293b" rx="3" stroke="#0f172a" stroke-width="1.2" />
+              <rect x="138" y="976" width="14" height="8" fill="#2563eb" rx="2" />
+              <line x1="145" y1="920" x2="145" y2="938" stroke="#475569" stroke-width="5" />
+
+              <rect x="345" y="938" width="20" height="38" fill="#1e293b" rx="3" stroke="#0f172a" stroke-width="1.2" />
+              <rect x="348" y="976" width="14" height="8" fill="#2563eb" rx="2" />
+              <line x1="355" y1="920" x2="355" y2="938" stroke="#475569" stroke-width="5" />
+            </g>
+
+            <!-- Avionics Bay & Servo Pin Sear -->
+            <g id="comp-avionics" class="comp-highlight" onclick="inspect('servo')">
+              <rect x="175" y="942" width="150" height="60" fill="#0f172a" stroke="#2563eb" stroke-width="1.5" rx="6" />
+              <text x="250" y="960" font-size="10.5" fill="#60a5fa" font-weight="bold" text-anchor="middle">航電電控系統艙</text>
+              <rect x="190" y="966" width="34" height="24" fill="#1e293b" stroke="#3b82f6" rx="2" />
+              <g id="servo-pin-group" class="anim-smooth">
+                <circle cx="207" cy="978" r="4" fill="#3b82f6" />
+                <rect id="servo-pin" x="205" y="956" width="4" height="24" fill="#fbbf24" stroke="#d97706" rx="1" />
+                <rect x="203" y="934" width="8" height="8" fill="#94a3b8" stroke="#334155" rx="1" />
+              </g>
+              <text x="264" y="982" font-size="9" fill="#fcd34d" font-weight="bold">舵機脫扣剪力插銷</text>
+            </g>
+
+            <!-- Dual Threaded Rods (Lead Screws) -->
+            <g id="comp-screws" class="comp-highlight" onclick="inspect('screws')">
+              <rect x="141" y="690" width="8" height="228" fill="url(#alu-grad)" rx="1" stroke="#334155" stroke-width="0.9" />
+              <rect x="141" y="690" width="8" height="228" fill="url(#thread-pat)" opacity="0.95" />
+              <polygon points="142,690 148,690 147,684 143,684" fill="#cbd5e1" stroke="#334155" stroke-width="0.5" />
+
+              <rect x="351" y="690" width="8" height="228" fill="url(#alu-grad)" rx="1" stroke="#334155" stroke-width="0.9" />
+              <rect x="351" y="690" width="8" height="228" fill="url(#thread-pat)" opacity="0.95" />
+              <polygon points="352,690 358,690 357,684 353,684" fill="#cbd5e1" stroke="#334155" stroke-width="0.5" />
+            </g>
+
+            <!-- Compression Spring -->
+            <g id="main-spring" class="anim-smooth comp-highlight" onclick="inspect('spring')">
+              <path id="spring-path" d="M250,920 C215,900 215,885 250,880 C285,875 285,860 250,855 C215,850 215,835 250,830 C285,825 285,810 250,805 C215,800 215,785 250,780 C285,775 285,760 250,755" 
+                    fill="none" stroke="#dc2626" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" filter="url(#spring-glow)" />
+            </g>
+
+            <!-- Carbon Fiber Ejection Plate Group -->
+            <g id="plate-group" class="anim-smooth" transform="translate(0, 0)">
+              <g id="comp-plate" class="comp-highlight" onclick="inspect('plate')">
+                <rect x="94" y="745" width="312" height="16" fill="url(#carbon-pat)" stroke="#0284c7" stroke-width="1.8" rx="3" />
+                <!-- Sliders -->
+                <rect x="85" y="742" width="13" height="22" fill="#ffffff" stroke="#334155" stroke-width="1.2" rx="2" />
+                <rect x="402" y="742" width="13" height="22" fill="#ffffff" stroke="#334155" stroke-width="1.2" rx="2" />
+                <!-- Smooth clearance holes for screws -->
+                <circle cx="145" cy="753" r="6.5" fill="#f8fafc" stroke="#0284c7" stroke-width="1.5" />
+                <circle cx="355" cy="753" r="6.5" fill="#f8fafc" stroke="#0284c7" stroke-width="1.5" />
+                <!-- Line A guide hole (amber) -->
+                <circle cx="195" cy="753" r="4" fill="#f8fafc" stroke="#dc2626" stroke-width="1.8" />
+                <!-- Center main bridle anchor (blue) -->
+                <circle cx="250" cy="753" r="5" fill="#2563eb" stroke="#ffffff" stroke-width="1.5" />
+                <text x="310" y="740" font-size="9" fill="#0284c7" font-weight="bold">碳纖維彈射板</text>
+              </g>
+            </g>
+
+            <!-- Payload Vehicle Group -->
+            <g id="payload-group" class="anim-smooth" transform="translate(0, 0)">
+              <g id="comp-payload" class="comp-highlight" onclick="inspect('payload')">
+                <rect x="115" y="595" width="270" height="95" fill="#e2e8f0" stroke="#475569" stroke-width="1.8" rx="6" />
+                <path d="M115,595 Q250,515 385,595 Z" fill="#cbd5e1" stroke="#475569" stroke-width="1.8" />
+                <text x="250" y="632" font-size="13" fill="#0f172a" font-weight="bold" text-anchor="middle">任務酬載載具 (Payload)</text>
+                <text x="250" y="650" font-size="9.5" fill="#475569" font-weight="semibold" text-anchor="middle">科研儀表艙 / 尾部內嵌雙銅螺帽</text>
+                <!-- Tail captive nuts engaging screws -->
+                <rect x="137" y="682" width="16" height="12" fill="#f59e0b" stroke="#78350f" stroke-width="1.5" rx="2" />
+                <line x1="145" y1="682" x2="145" y2="694" stroke="#78350f" stroke-width="2" />
+                <rect x="347" y="682" width="16" height="12" fill="#f59e0b" stroke="#78350f" stroke-width="1.5" rx="2" />
+                <line x1="355" y1="682" x2="355" y2="694" stroke="#78350f" stroke-width="2" />
+              </g>
+            </g>
+
+            <!-- PARACHUTE RECOVERY SYSTEM (REALISTIC SCALE) -->
+            <g id="chute-system-group" class="anim-smooth">
+              
+              <!-- State 1 & 2: SQUISHED COMPACT CHUTE PACK (FLAT PANCAKE) -->
+              <g id="squished-chutes" class="anim-smooth" opacity="1">
+                <rect x="165" y="695" width="170" height="48" rx="7" fill="#fef3c7" stroke="#d97706" stroke-width="2.5" />
+                <line x1="172" y1="710" x2="328" y2="710" stroke="#f59e0b" stroke-width="1.8" stroke-dasharray="6 3" />
+                <line x1="172" y1="726" x2="328" y2="726" stroke="#f59e0b" stroke-width="1.8" stroke-dasharray="6 3" />
+                <ellipse cx="250" cy="719" rx="24" ry="10" fill="#ea580c" />
+                <text x="250" y="723" font-size="9" fill="#ffffff" font-weight="bold" text-anchor="middle">主副傘極限壓扁收納</text>
+              </g>
+
+              <!-- LINE A: Reefing Collar Ring Restraint Cable (Red) -->
+              <!-- fill="none" IS CRUCIAL TO PREVENT SVG SHADOW CRESCENTS -->
+              <g id="line-a-group" class="comp-highlight" onclick="inspect('lineA')">
+                <path id="line-a-path" d="M195,720 L195,958" fill="none" stroke="#dc2626" stroke-width="2.8" stroke-linecap="round" />
+              </g>
+
+              <!-- LINE B: Center Apex Vent Through-Line (Blue Dashed) -->
+              <g id="line-b-group" class="comp-highlight" onclick="inspect('lineB')">
+                <path id="line-b-path" d="M250,720 L250,753" fill="none" stroke="#2563eb" stroke-width="2.8" stroke-dasharray="5 3" />
+              </g>
+
+              <!-- MAIN CHUTE GROUP (SLENDER BURRITO PACK + 560mm EXPANDED BLOOM) -->
+              <g id="main-chute-group" class="anim-smooth" opacity="0">
+                
+                <!-- Main Shroud Lines -->
+                <path id="main-lines-path" d="M208,250 L250,320 M222,250 L250,320 M278,250 L250,320 M292,250 L250,320" 
+                      fill="none" stroke="#64748b" stroke-width="2" />
+
+                <!-- 1. SLENDER BURRITO PACK (STATE 3: SLEEVED THROUGH RING) -->
+                <!-- Width: 92px, Height: 220px (Robust, long, passes through 110mm ring) -->
+                <g id="main-slender-bundle" class="anim-smooth">
+                  <rect x="204" y="30" width="92" height="220" rx="12" fill="url(#chute-fabric-pat)" stroke="#d97706" stroke-width="2.5" />
+                  <line x1="225" y1="30" x2="225" y2="250" stroke="#f59e0b" stroke-width="1.8" />
+                  <line x1="250" y1="30" x2="250" y2="250" stroke="#b45309" stroke-width="2.2" />
+                  <line x1="275" y1="30" x2="275" y2="250" stroke="#f59e0b" stroke-width="1.8" />
+                  <!-- Apex Vent Grommet at top of pack -->
+                  <ellipse cx="250" cy="30" rx="12" ry="5" fill="#ffffff" stroke="#b45309" stroke-width="2.5" />
+                  <text x="250" y="145" font-size="11" fill="#92400e" font-weight="extrabold" text-anchor="middle" transform="rotate(-90 250 145)">
+                    92mm 厚實長條主傘包 (套於環內)
+                  </text>
+                </g>
+
+                <!-- 2. FULLY BLOOMED 560mm MAIN CANOPY (STATE 4) -->
+                <!-- Width: 560px (x = -30 to x = 530), Height: 220px, Majestic Aerospace Parachute -->
+                <g id="main-expanded-canopy" class="anim-smooth" opacity="0" filter="url(#chute-shadow)">
+                  <!-- Outer Main Parachute Canopy Hem -->
+                  <path d="M-30,90 Q250,-130 530,90 Z" fill="#fffbeb" stroke="#d97706" stroke-width="3.5" />
+                  <!-- Colorful High-Visibility Aerospace Gore Panels -->
+                  <path d="M40,90 Q250,-80 460,90" stroke="#f59e0b" stroke-width="2.5" fill="none" />
+                  <path d="M110,90 Q250,-30 390,90" stroke="#ea580c" stroke-width="2.2" fill="none" />
+                  <path d="M180,90 Q250,20 320,90" stroke="#b45309" stroke-width="2" fill="none" />
+                  <!-- Vertical Gore Seams -->
+                  <path d="M-30,90 Q110,-20 250,-130" stroke="#fcd34d" stroke-width="1.5" fill="none" stroke-dasharray="6 3" />
+                  <path d="M530,90 Q390,-20 250,-130" stroke="#fcd34d" stroke-width="1.5" fill="none" stroke-dasharray="6 3" />
+                  <path d="M110,90 Q180,-20 250,-130" stroke="#fcd34d" stroke-width="1.5" fill="none" stroke-dasharray="6 3" />
+                  <path d="M390,90 Q320,-20 250,-130" stroke="#fcd34d" stroke-width="1.5" fill="none" stroke-dasharray="6 3" />
+                  
+                  <!-- Center Apex Vent (穩流孔) -->
+                  <ellipse cx="250" cy="-125" rx="16" ry="8" fill="#ffffff" stroke="#b45309" stroke-width="3.5" />
+                  <text x="250" y="-138" font-size="9" fill="#92400e" font-weight="bold" text-anchor="middle">中心穩流孔 (Apex Vent)</text>
+                  
+                  <!-- Central Title Banner inside Canopy -->
+                  <rect x="130" y="25" width="240" height="28" rx="6" fill="#fef3c7" stroke="#d97706" stroke-width="1.5" opacity="0.9" />
+                  <text x="250" y="44" font-size="14" fill="#92400e" font-weight="extrabold" text-anchor="middle">
+                    主傘完全綻放 (560mm 超大半球冠)
+                  </text>
+                </g>
+              </g>
+
+              <!-- DROGUE CHUTE & METAL REEFING COLLAR RING ASSEMBLY -->
+              <!-- In State 3: Ring sits at y=90 around the 92mm main burrito; Drogue is 220mm wide at y=-100 -->
+              <!-- In State 4: Assembly translated upwards above the main apex vent; Ring arrested by Line B -->
+              <g id="drogue-and-ring-group" class="anim-smooth" opacity="0" transform="translate(0, 0)">
+                
+                <!-- Metal Reefing Collar Ring (110mm wide) -->
+                <g id="comp-ring" class="comp-highlight" onclick="inspect('ring')">
+                  <!-- Outer gold collar ring -->
+                  <ellipse cx="250" cy="90" rx="55" ry="15" fill="none" stroke="url(#gold-ring-grad)" stroke-width="7" />
+                  <ellipse cx="250" cy="90" rx="55" ry="15" fill="none" stroke="#ffffff" stroke-width="2.5" />
+                  <!-- Tag pill -->
+                  <rect x="315" y="78" width="65" height="22" fill="#fef3c7" stroke="#d97706" stroke-width="1.2" rx="4" />
+                  <text x="347" y="93" font-size="9.5" fill="#92400e" font-weight="bold" text-anchor="middle">金屬小圓環</text>
+                </g>
+
+                <!-- Drogue Suspension Lines: 100% Permanently Anchored to Metal Ring! -->
+                <g id="drogue-lines">
+                  <line x1="160" y1="-100" x2="205" y2="88" stroke="#ea580c" stroke-width="2.2" />
+                  <line x1="220" y1="-100" x2="235" y2="85" stroke="#ea580c" stroke-width="2.2" />
+                  <line x1="280" y1="-100" x2="265" y2="85" stroke="#ea580c" stroke-width="2.2" />
+                  <line x1="340" y1="-100" x2="295" y2="88" stroke="#ea580c" stroke-width="2.2" />
+                </g>
+
+                <!-- 220mm PROMINENT DROGUE CANOPY -->
+                <!-- Width: 220px (x=140 to x=360), Height: 75px, High-Visibility Orange & White -->
+                <g id="comp-drogue" class="comp-highlight" onclick="inspect('drogue')" filter="url(#chute-shadow)">
+                  <path d="M140,-100 Q250,-175 360,-100 Z" fill="#ea580c" stroke="#c2410c" stroke-width="3" />
+                  <!-- Internal decorative gores -->
+                  <path d="M175,-100 Q250,-155 325,-100" stroke="#f97316" stroke-width="2" fill="none" />
+                  <path d="M210,-100 Q250,-135 290,-100" stroke="#fed7aa" stroke-width="1.8" fill="none" />
+                  <!-- Pilot Chute / Apex Cap -->
+                  <circle cx="250" cy="-145" r="9" fill="#ffedd5" stroke="#c2410c" stroke-width="1.5" />
+                  <text x="250" y="-115" font-size="11.5" fill="#ffffff" font-weight="extrabold" text-anchor="middle">
+                    副傘 (Drogue · 220mm 氣動引導)
+                  </text>
+                </g>
+              </g>
+
+            </g>
+
+            <!-- Red Ground Safety Pins (RBF) -->
+            <g id="comp-redpins" class="comp-highlight" onclick="inspect('redpins')">
+              <g id="pin-left" class="anim-smooth">
+                <rect x="36" y="748" width="64" height="10" fill="#dc2626" rx="2" stroke="#991b1b" stroke-width="1.2" />
+                <rect x="20" y="744" width="18" height="18" fill="#b91c1c" rx="3" stroke="#7f1d1d" stroke-width="1.2" />
+                <text x="29" y="757" font-size="9" fill="#ffffff" font-weight="bold" text-anchor="middle">R</text>
+                <polygon points="21,762 33,762 27,794 15,794" fill="#ef4444" stroke="#b91c1c" stroke-width="0.5" />
+                <text x="25" y="784" font-size="7.5" fill="#ffffff" font-weight="bold" transform="rotate(-90 25,784)">RBF</text>
+              </g>
+              <g id="pin-right" class="anim-smooth">
+                <rect x="400" y="748" width="64" height="10" fill="#dc2626" rx="2" stroke="#991b1b" stroke-width="1.2" />
+                <rect x="462" y="744" width="18" height="18" fill="#b91c1c" rx="3" stroke="#7f1d1d" stroke-width="1.2" />
+                <text x="471" y="757" font-size="9" fill="#ffffff" font-weight="bold" text-anchor="middle">R</text>
+                <polygon points="465,762 477,762 471,794 459,794" fill="#ef4444" stroke="#b91c1c" stroke-width="0.5" />
+                <text x="469" y="784" font-size="7.5" fill="#ffffff" font-weight="bold" transform="rotate(-90 469,784)">RBF</text>
+              </g>
+            </g>
+
+            <!-- Outer Rocket Fuselage (Airframe Tube) -->
+            <g id="outer-hull" pointer-events="none" class="transition-opacity duration-300">
+              <rect x="62" y="160" width="376" height="800" fill="url(#hull-grad)" stroke="#0284c7" stroke-width="2.5" rx="30" opacity="0.22" />
+              <line x1="62" y1="160" x2="62" y2="960" stroke="#0284c7" stroke-width="3" opacity="0.8" />
+              <line x1="438" y1="160" x2="438" y2="960" stroke="#0284c7" stroke-width="3" opacity="0.8" />
+              <!-- Lateral holes for RBF pins -->
+              <circle cx="62" cy="753" r="6.5" fill="#ffffff" stroke="#dc2626" stroke-width="2" />
+              <circle cx="438" cy="753" r="6.5" fill="#ffffff" stroke="#dc2626" stroke-width="2" />
+              <text x="430" y="200" font-size="9" fill="#0284c7" font-weight="bold" text-anchor="end" opacity="0.7">Ø150mm 推進器箭體</text>
+            </g>
+
+          </g>
+        </svg>
+      </div>
+
+      <!-- Right: Technical Specification & Analysis Panel -->
+      <div class="lg:col-span-4 flex flex-col gap-3">
+        
+        <!-- Component Details Card -->
+        <div class="p-4 rounded-2xl bg-white border border-slate-200 flex-1 flex flex-col justify-between shadow-sm">
+          <div>
+            <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
+              <span id="inspect-title" class="font-extrabold text-sm text-blue-700">點擊左側零件查看工程規範</span>
+              <span id="inspect-tag" class="text-[10px] px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 font-mono font-bold border border-blue-200">SPEC INFO</span>
+            </div>
+            <p id="inspect-desc" class="text-xs text-slate-600 leading-relaxed min-h-[75px]">
+              點擊左側零件查看工程細節：<strong>220mm 氣動副傘</strong>、<strong>92mm 厚實長條主傘包穿環</strong>、<strong>560mm 超大半球滿充大傘冠</strong>與<strong>舵機剪力脫扣</strong>。
+            </p>
+          </div>
+
+          <div id="inspect-specs" class="mt-3 p-3 rounded-xl bg-slate-50 border border-slate-200/80 text-xs space-y-1.5 font-mono">
+            <div class="flex justify-between text-slate-500">
+              <span>副傘直徑:</span>
+              <span class="text-amber-700 font-bold">220 mm (充足氣動抽取力)</span>
+            </div>
+            <div class="flex justify-between text-slate-500">
+              <span>長條主傘包:</span>
+              <span class="text-slate-900 font-bold">92 mm 寬 × 220 mm 長</span>
+            </div>
+            <div class="flex justify-between text-slate-500">
+              <span>滿充主傘冠:</span>
+              <span class="text-emerald-700 font-bold">560 mm (寬於箭體，安全軟著陸)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- System Architecture Highlights -->
+        <div class="p-4 rounded-2xl bg-white border border-slate-200 text-xs space-y-2.5 shadow-sm">
+          <div class="font-bold text-xs text-slate-900 flex items-center justify-between">
+            <span class="flex items-center gap-1.5">
+              <span class="text-amber-500 font-bold">⚡</span>
+              兩級開傘拓撲與幾何受力核心要點
+            </span>
+            <span class="text-[10px] text-slate-400">Recovery Logic</span>
+          </div>
+
+          <div class="space-y-2 text-[11px]">
+            <div class="p-2 rounded-lg bg-slate-50 border border-slate-200/70 flex items-start gap-2">
+              <span class="w-4 h-4 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">1</span>
+              <div>
+                <span class="font-bold text-slate-900">地面下壓鎖牙壓扁傘身：</span>
+                <span class="text-slate-600">酬載尾部螺帽緊鎖雙牙條，直接抵銷強大彈簧推力，主副傘被牢固壓成扁平餅狀。</span>
+              </div>
+            </div>
+
+            <div class="p-2 rounded-lg bg-amber-50/70 border border-amber-200/70 flex items-start gap-2">
+              <span class="w-4 h-4 rounded-full bg-amber-200 text-amber-800 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">2</span>
+              <div>
+                <span class="font-bold text-amber-900">220mm 副傘傘繩鎖死於圓環：</span>
+                <span class="text-slate-600">頂點彈射後副傘先充氣，全額拉力傳至 110mm 金屬圓環，並由繩 A 傳回底座舵機插銷受力減速。</span>
+              </div>
+            </div>
+
+            <div class="p-2 rounded-lg bg-blue-50/70 border border-blue-200/70 flex items-start gap-2">
+              <span class="w-4 h-4 rounded-full bg-blue-200 text-blue-800 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">3</span>
+              <div>
+                <span class="font-bold text-blue-900">長條主傘套於圓環內受縛：</span>
+                <span class="text-slate-600">高空主傘被拉出為 92mm 厚實長條柱狀，傘身套在圓環內，繩 A 緊緊拉住圓環阻止主傘膨脹。</span>
+              </div>
+            </div>
+
+            <div class="p-2 rounded-lg bg-emerald-50/70 border border-emerald-200/70 flex items-start gap-2">
+              <span class="w-4 h-4 rounded-full bg-emerald-200 text-emerald-800 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">4</span>
+              <div>
+                <span class="font-bold text-emerald-900">舵機抽銷 · 560mm 超大傘綻放：</span>
+                <span class="text-slate-600">低空舵機脫扣繩 A，副傘氣動力將圓環從主傘頂部拔離，主傘瞬時綻放為 560mm 大傘，繩 B 頂孔限位！</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentState = 1;
+    let zoomLevel = 1.0;
+    let panX = 0;
+    let panY = 0;
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+
+    const viewportGroup = document.getElementById('viewport-group');
+    const canvasContainer = document.getElementById('canvas-container');
+    const zoomReadout = document.getElementById('zoom-readout');
+
+    function updateTransform() {
+      viewportGroup.setAttribute('transform', `translate(${panX}, ${panY}) scale(${zoomLevel})`);
+      zoomReadout.innerText = `${Math.round(zoomLevel * 100)}%`;
+    }
+
+    function zoomIn() {
+      if (zoomLevel < 3.0) {
+        zoomLevel += 0.25;
+        updateTransform();
+      }
+    }
+
+    function zoomOut() {
+      if (zoomLevel > 0.5) {
+        zoomLevel -= 0.25;
+        updateTransform();
+      }
+    }
+
+    function resetZoom() {
+      zoomLevel = 1.0;
+      panX = 0;
+      panY = 0;
+      updateTransform();
+    }
+
+    function focusParachutes() {
+      zoomLevel = 1.35;
+      panX = -90;
+      panY = 160;
+      updateTransform();
+    }
+
+    function focusMechanism() {
+      zoomLevel = 1.35;
+      panX = -90;
+      panY = -350;
+      updateTransform();
+    }
+
+    canvasContainer.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.12 : 0.88;
+      const newZoom = zoomLevel * zoomFactor;
+      if (newZoom >= 0.45 && newZoom <= 3.5) {
+        const rect = canvasContainer.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        panX = mouseX - (mouseX - panX) * zoomFactor;
+        panY = mouseY - (mouseY - panY) * zoomFactor;
+        zoomLevel = newZoom;
+        updateTransform();
+      }
+    }, { passive: false });
+
+    canvasContainer.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      startX = e.clientX - panX;
+      startY = e.clientY - panY;
+      canvasContainer.classList.remove('cursor-grab');
+      canvasContainer.classList.add('cursor-grabbing');
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      panX = e.clientX - startX;
+      panY = e.clientY - startY;
+      updateTransform();
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (isDragging) {
+        isDragging = false;
+        canvasContainer.classList.remove('cursor-grabbing');
+        canvasContainer.classList.add('cursor-grab');
+      }
+    });
+
+    const compDetails = {
+      drogue: {
+        title: "副傘 (Drogue Chute) · 220mm 氣動引導傘",
+        tag: "第一級高速減速 & 強力抽取",
+        desc: "全面按航太比例放大至 220mm 直徑！具備足夠強勁的氣動阻力。4 條高強度傘繩 100% 牢固綁定在 110mm 金屬圓環上。頂點彈射後首先充氣張開，拉力經圓環傳回繩 A，帶動整枚火箭以穩定姿態減速；低空時提供強大的抽取拉力，將金屬圓環從 92mm 粗的主傘上徹底拔出。",
+        specs: [
+          ["傘冠直徑", "220 mm (超大氣動抽取力)"],
+          ["傘繩錨定", "4 根傘繩 100% 牢固鎖死在金屬圓環頂部"],
+          ["核心功能", "頂點姿態穩定、第一級減速、拔離圓環釋放主傘"]
+        ]
+      },
+      mainChute: {
+        title: "主傘 (Main Chute) · 92mm長條收納 & 560mm滿充冠",
+        tag: "最終軟著陸主力大傘",
+        desc: "真實比例完整呈現：地面時被酬載壓成扁平餅狀；高空被彈出後受繩 A 束縛，拉伸為直徑 92mm 的厚實長條柱狀，且【穿套在金屬圓環內被緊緊卡住】無法張開；待低空舵機抽銷放線、圓環被副傘拔出後，主傘如花朵般瞬間滿充綻放為直徑 560mm 的超大半球主傘冠（明顯寬於箭體），實現安全軟著陸。",
+        specs: [
+          ["長條收納", "92 mm 寬 × 220 mm 長 (套在圓環內受縛)"],
+          ["滿充傘冠", "560 mm 寬 (超大半球冠，寬於 150mm 箭體)"],
+          ["頂孔設計", "中心穩流孔 (Apex Vent) 供繩 B 貫穿限位"]
+        ]
+      },
+      ring: {
+        title: "金屬小圓環 (Reefing Collar Ring) · 110mm 束腰中樞",
+        tag: "兩級開傘約束受力核心",
+        desc: "副傘傘繩永久牢固綁定在圓環頂部！在發射前與高空副傘展開時，主傘整根 92mm 粗的細長傘身穿套在圓環內部。圓環被繩 A 扣在電控舵機上阻止主傘膨脹；當舵機拔銷釋放繩 A，副傘強勁氣動力將圓環從長條主傘向上抽離，觸發 560mm 主傘全面綻放。",
+        specs: [
+          ["圓環尺寸", "外徑 110 mm，內徑足夠容納 92mm 長條主傘順暢滑過"],
+          ["副傘連接", "副傘傘繩 100% 牢固綁定於圓環上"],
+          ["倒角工藝", "R1.0 鏡面拋光，高速抽離時絕不割傷傘布"]
+        ]
+      },
+      payload: {
+        title: "任務酬載載具 (Payload) · 發射前下壓鎖牙",
+        tag: "被投送目標",
+        desc: "發射前酬載向下用力推壓彈射板，將主傘與副傘壓成扁平狀收納。尾部兩處內嵌黃銅螺帽對準雙牙條旋緊鎖死，完全承擔壓縮主彈簧的向上爆發推力，發射升空時極其穩固。頂點退牙後依靠慣性飛出。",
+        specs: [
+          ["發射前安裝", "下壓彈射板至底，螺帽咬合牙條鎖死"],
+          ["傘包受力", "主副傘被牢固夾在酬載與彈射板間壓扁"],
+          ["解鎖動作", "雙馬達反轉退牙脫扣，酬載分離飛出"]
+        ]
+      },
+      lineA: {
+        title: "繩子 A (圓環約束釋放線)",
+        tag: "主傘封閉控制線",
+        desc: "連接在金屬圓環下部，穿過碳纖維彈射板的專屬導線孔，末端套在電控艙的舵機剪力插銷上。長度剛好拉緊圓環卡住主傘，高空副傘減速時全額承擔副傘拉力。舵機抽銷後繩 A 脫離釋放。",
+        specs: [
+          ["線材規格", "高拉力凱夫拉 (Kevlar) 200lb"],
+          ["受力形式", "高空承擔副傘拉力，卡住主傘不開"],
+          ["釋放時機", "低空舵機轉動 60° 拔銷釋放"]
+        ]
+      },
+      lineB: {
+        title: "繩子 B (貫穿主傘頂孔限位長線)",
+        tag: "主傘防飛防絞線",
+        desc: "連接在金屬圓環上，由上往下垂直貫穿主傘中間的中心穩流孔 (Apex Vent)，牢固鎖在碳纖維彈射板上。長度大於主傘傘身高+傘繩長度。主傘完全綻放後攔截住圓環與副傘，使其穩定在主傘正上方。",
+        specs: [
+          ["穿透路徑", "貫穿長條主傘頂部中心穩流孔"],
+          ["長度約束", "L_繩B > L_主傘身 + L_主傘繩"],
+          ["關鍵作用", "防止副傘飛失、杜絕雙傘絞線相撞"]
+        ]
+      },
+      plate: {
+        title: "碳纖維彈射板 (Carbon Fiber Ejection Plate)",
+        tag: "推頂動件與承力中樞",
+        desc: "航太碳纖維板。發射前被酬載緊壓在底部壓縮主彈簧，並被紅色安全銷卡死。兩側具 Ø10mm 無螺紋光孔讓牙條穿過。頂點時彈簧推動其全速向上滑動至頂端 PU 緩衝塊煞停。集中錨定主傘傘繩與繩 B。",
+        specs: [
+          ["板材材質", "3.0 mm 高模量碳纖維複合板"],
+          ["過孔設計", "Ø10 mm 無螺紋光滑沉頭孔"],
+          ["末端煞停", "撞擊 2020 頂端 PU 橡膠緩衝墊煞停"]
+        ]
+      },
+      servo: {
+        title: "航電電控舵機脫扣機構 (Servo Pin Sear)",
+        tag: "剪力插銷解鎖",
+        desc: "安裝於電控艙。舵機帶動金屬插銷橫向穿過導套鎖死繩 A。副傘巨大拉力被導套本體的剪切強度吸收，舵機只需極小力量橫向拔出插銷即可可靠脫扣，零卡死風險。",
+        specs: [
+          ["工作原理", "橫向插銷式剪力脫扣"],
+          ["解鎖動作", "低空觸發舵機轉動 60° 拔出插銷"]
+        ]
+      },
+      screws: {
+        title: "雙側對稱螺紋牙條 (Tr8 或 M 牙)",
+        tag: "夾緊 & 釋放",
+        desc: "發射前穿過彈射板咬入酬載尾部螺帽，兩點拘束在幾何上鎖死旋轉自由度（天然防自轉）。頂點退牙脫扣。",
+        specs: [
+          ["螺牙咬合", "約 3~4 mm (3~4圈)"],
+          ["防自轉特性", "雙螺栓力偶對稱拘束"]
+        ]
+      },
+      rails: {
+        title: "雙側 2020 鋁擠型導向與末端限位",
+        tag: "導向 & 煞停",
+        desc: "左右兩根 2020 鋁擠型提供整個行程的直線導向。頂部裝設實心鋁擋塊與 PU 緩衝墊，攔截彈射板不彈出。",
+        specs: [
+          ["導軌長度", "620 mm 行程導引"],
+          ["末端緩衝", "PU 彈性減震墊 (8mm厚)"]
+        ]
+      },
+      motors: {
+        title: "雙微型金屬減速馬達 (底板固定)",
+        tag: "動力驅動",
+        desc: "安裝於底板下方直接驅動牙條。配置推力球軸承承擔拉力。",
+        specs: [
+          ["建議轉速", "500 ~ 800 RPM"],
+          ["軸向保護", "微型推力球軸承座"]
+        ]
+      },
+      spring: {
+        title: "中央重載彈射主彈簧 (Main Spring)",
+        tag: "彈射動力",
+        desc: "位於彈射板下方中央軸線，提供彈出酬載所需的初始爆發動能。發射前被酬載下壓至極限壓縮狀態。",
+        specs: [
+          ["預壓推力", "約 40 ~ 60 N"]
+        ]
+      },
+      redpins: {
+        title: "紅色地面安全插銷 (Remove Before Flight)",
+        tag: "地面安全鎖",
+        desc: "穿透外殼直接卡死彈射板，完全卸除彈簧施加給馬達與牙條的拉力。發射前手動拔除。",
+        specs: [
+          ["警告標示", "鮮紅 RBF 警示飄帶"],
+          ["拆除時機", "發射前最後檢查步驟"]
+        ]
+      },
+      bulkhead: {
+        title: "底部承載底板 (Mounting Bulkhead)",
+        tag: "結構基座",
+        desc: "將鋁擠型軌道、馬達基座與推力軸承整合成一體，承受所有軸向反作用力，並將下方電控艙隔離保護。",
+        specs: [
+          ["板厚材質", "6061-T6 鋁合金 (4mm)"]
+        ]
+      }
+    };
+
+    function inspect(key) {
+      const data = compDetails[key];
+      if (!data) return;
+      document.getElementById('inspect-title').innerText = data.title;
+      document.getElementById('inspect-tag').innerText = data.tag;
+      document.getElementById('inspect-desc').innerText = data.desc;
+
+      let html = '';
+      data.specs.forEach(([k, v]) => {
+        html += `<div class="flex justify-between text-slate-500"><span>${k}:</span><span class="text-slate-900 font-bold">${v}</span></div>`;
+      });
+      document.getElementById('inspect-specs').innerHTML = html;
+    }
+
+    function setShellOpacity(op) {
+      document.getElementById('outer-hull').style.opacity = op;
+      ['btn-ghost', 'btn-hide', 'btn-xray'].forEach(id => {
+        document.getElementById(id).className = "px-2 py-1 rounded text-[11px] text-slate-600 hover:bg-slate-100";
+      });
+      if (op === 0.22) document.getElementById('btn-ghost').className = "px-2 py-1 rounded text-[11px] bg-blue-50 text-blue-700 font-semibold border border-blue-200";
+      if (op === 0) document.getElementById('btn-hide').className = "px-2 py-1 rounded text-[11px] bg-blue-50 text-blue-700 font-semibold border border-blue-200";
+      if (op === 0.65) document.getElementById('btn-xray').className = "px-2 py-1 rounded text-[11px] bg-blue-50 text-blue-700 font-semibold border border-blue-200";
+    }
+
+    function setState(st) {
+      currentState = st;
+      [1, 2, 3, 4].forEach(i => {
+        const btn = document.getElementById(`btn-state-${i}`);
+        if (i === st) {
+          btn.className = "px-3 py-1.5 rounded-lg font-bold transition-all bg-blue-600 text-white shadow-sm";
+        } else {
+          btn.className = "px-3 py-1.5 rounded-lg font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-slate-200/60";
+        }
+      });
+
+      const pinL = document.getElementById('pin-left');
+      const pinR = document.getElementById('pin-right');
+      const plateGroup = document.getElementById('plate-group');
+      const payloadGroup = document.getElementById('payload-group');
+      const squishedChutes = document.getElementById('squished-chutes');
+      const mainChuteGroup = document.getElementById('main-chute-group');
+      const drogueAndRingGroup = document.getElementById('drogue-and-ring-group');
+      const mainSlender = document.getElementById('main-slender-bundle');
+      const mainExpanded = document.getElementById('main-expanded-canopy');
+      const mainLinesPath = document.getElementById('main-lines-path');
+      const lineAPath = document.getElementById('line-a-path');
+      const lineBPath = document.getElementById('line-b-path');
+      const servoPinGroup = document.getElementById('servo-pin-group');
+      const springPath = document.getElementById('spring-path');
+      const badge = document.getElementById('state-badge');
+      const desc = document.getElementById('state-desc');
+
+      if (st === 1) {
+        badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-600"></span> 1. 地面安全鎖定模式 (RBF)';
+        badge.className = "text-xs font-extrabold text-red-600 flex items-center justify-end gap-1.5";
+        desc.innerText = "酬載下壓到底壓扁主副傘，尾部螺帽咬合牙條，紅色安全銷卡死彈射板";
+
+        pinL.style.transform = "translateX(0px)";
+        pinR.style.transform = "translateX(0px)";
+        plateGroup.style.transform = "translate(0px, 0px)";
+        payloadGroup.style.transform = "translate(0px, 0px)";
+        payloadGroup.style.opacity = "1";
+
+        squishedChutes.style.opacity = "1";
+        mainChuteGroup.style.opacity = "0";
+        drogueAndRingGroup.style.opacity = "0";
+
+        lineAPath.setAttribute('d', "M195,720 L195,958");
+        lineAPath.style.opacity = "1";
+        lineBPath.setAttribute('d', "M250,720 L250,753");
+
+        servoPinGroup.style.transform = "translate(0px, 0px)";
+        springPath.setAttribute('d', "M250,920 C215,900 215,885 250,880 C285,875 285,860 250,855 C215,850 215,835 250,830 C285,825 285,810 250,805 C215,800 215,785 250,780 C285,775 285,760 250,755");
+        inspect('payload');
+
+      } else if (st === 2) {
+        badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-blue-600"></span> 2. 飛行備發狀態 (已拔紅銷)';
+        badge.className = "text-xs font-extrabold text-blue-700 flex items-center justify-end gap-1.5";
+        desc.innerText = "紅銷已拔除！雙牙條完全承擔主彈簧推力，酬載持續壓緊扁平傘包，隨時準備發射";
+
+        pinL.style.transform = "translateX(-90px)";
+        pinR.style.transform = "translateX(90px)";
+
+        plateGroup.style.transform = "translate(0px, 0px)";
+        payloadGroup.style.transform = "translate(0px, 0px)";
+        payloadGroup.style.opacity = "1";
+
+        squishedChutes.style.opacity = "1";
+        mainChuteGroup.style.opacity = "0";
+        drogueAndRingGroup.style.opacity = "0";
+
+        lineAPath.setAttribute('d', "M195,720 L195,958");
+        lineAPath.style.opacity = "1";
+        lineBPath.setAttribute('d', "M250,720 L250,753");
+
+        servoPinGroup.style.transform = "translate(0px, 0px)";
+        springPath.setAttribute('d', "M250,920 C215,900 215,885 250,880 C285,875 285,860 250,855 C215,850 215,835 250,830 C285,825 285,810 250,805 C215,800 215,785 250,780 C285,775 285,760 250,755");
+        inspect('screws');
+
+      } else if (st === 3) {
+        badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-600"></span> 3. 高空副傘展開 (長條主傘穿環受縛)';
+        badge.className = "text-xs font-extrabold text-amber-600 flex items-center justify-end gap-1.5";
+        desc.innerText = "220mm副傘傘繩鎖死於圓環！92mm長條主傘套在圓環內，繩A拉住舵機卡死主傘不開";
+
+        pinL.style.transform = "translateX(-90px)";
+        pinR.style.transform = "translateX(90px)";
+
+        plateGroup.style.transform = "translate(0px, -425px)";
+        payloadGroup.style.transform = "translate(0px, -700px)";
+        payloadGroup.style.opacity = "0.7";
+
+        squishedChutes.style.opacity = "0";
+        mainChuteGroup.style.opacity = "1";
+        drogueAndRingGroup.style.opacity = "1";
+
+        drogueAndRingGroup.style.transform = "translate(0px, 0px)";
+        mainSlender.style.opacity = "1";
+        mainSlender.style.transform = "scale(1, 1)";
+        mainExpanded.style.opacity = "0";
+
+        // Main lines anchor to CF plate at (250, 320)
+        mainLinesPath.setAttribute('d', "M204,250 L250,320 M230,250 L250,320 M270,250 L250,320 M296,250 L250,320");
+        
+        // Line A: Ring (195, 95) -> Plate guide hole (195, 320) -> Servo (195, 958)
+        lineAPath.setAttribute('d', "M195,95 L195,958");
+        lineAPath.style.opacity = "1";
+        
+        // Line B: Ring (250, 90) -> Down through Apex Vent (250, 30) -> Plate (250, 320)
+        lineBPath.setAttribute('d', "M250,90 L250,320");
+
+        servoPinGroup.style.transform = "translate(0px, 0px)";
+        springPath.setAttribute('d', "M250,920 C200,840 200,760 250,680 C300,600 300,520 250,440 C200,380 200,340 250,325");
+        inspect('drogue');
+
+      } else if (st === 4) {
+        badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-600"></span> 4. 低空主傘展開 (560mm滿充綻放)';
+        badge.className = "text-xs font-extrabold text-emerald-700 flex items-center justify-end gap-1.5";
+        desc.innerText = "舵機抽銷釋放繩A！副傘拉出圓環脫離主傘，560mm大主傘全面綻放，繩B頂孔限位！";
+
+        pinL.style.transform = "translateX(-90px)";
+        pinR.style.transform = "translateX(90px)";
+
+        plateGroup.style.transform = "translate(0px, -425px)";
+        payloadGroup.style.transform = "translate(0px, -820px)";
+        payloadGroup.style.opacity = "0.3";
+
+        squishedChutes.style.opacity = "0";
+        mainChuteGroup.style.opacity = "1";
+        drogueAndRingGroup.style.opacity = "1";
+
+        // Drogue and Ring pulled upwards above the main apex vent (-125)
+        // Ring sits at y = 90 - 245 = -155; Drogue is above at y = -100 - 245 = -345
+        drogueAndRingGroup.style.transform = "translate(0px, -245px)";
+        mainSlender.style.opacity = "0";
+        mainExpanded.style.opacity = "1";
+        mainExpanded.style.transform = "translate(0px, 0px) scale(1)";
+
+        // 8 Main Suspension lines spanning from wide 560mm skirt down to plate anchor (250, 320)
+        mainLinesPath.setAttribute('d', "M-30,90 L250,320 M50,90 L250,320 M130,90 L250,320 M210,90 L250,320 M290,90 L250,320 M370,90 L250,320 M450,90 L250,320 M530,90 L250,320");
+        
+        // Line A: released, loose slack curve, NO FILL!
+        lineAPath.style.opacity = "0.35";
+        lineAPath.setAttribute('d', "M195,-150 Q120,50 170,200 Q210,270 195,320");
+        
+        // Line B: Taut from CF plate (250, 320) straight up through Apex Vent (250, -125) to Ring (250, -155)
+        lineBPath.setAttribute('d', "M250,-155 L250,320");
+
+        // Servo pin rotates/retracts
+        servoPinGroup.style.transform = "translate(14px, 0px) rotate(45deg)";
+        springPath.setAttribute('d', "M250,920 C200,840 200,760 250,680 C300,600 300,520 250,440 C200,380 200,340 250,325");
+        inspect('mainChute');
+      }
+    }
+
+    // Default inspect drogue
+    inspect('drogue');
+  </script>
+</body>
+</html>
